@@ -1,10 +1,10 @@
-# 🧮 Calculadora TDD en Python
+# Calculadora TDD en Python
 
 Prototipo de calculadora construido siguiendo la metodología **Test-Driven Development (TDD)**.
 
 ---
 
-## 📐 ¿Qué es TDD?
+## ¿Qué es TDD?
 
 TDD es una metodología de desarrollo de software donde **los tests se escriben ANTES que el código**.
 El ciclo se repite en 3 fases:
@@ -17,7 +17,7 @@ El ciclo se repite en 3 fases:
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 calculadora_tdd/
@@ -35,7 +35,7 @@ calculadora_tdd/
 
 ---
 
-## ⚙️ Operaciones Implementadas
+## Operaciones Implementadas
 
 | Iteración | Operación       | Método              | Casos especiales           |
 |-----------|-----------------|---------------------|----------------------------|
@@ -49,7 +49,7 @@ calculadora_tdd/
 
 ---
 
-## 🧪 Cómo ejecutar los tests
+## Cómo ejecutar los tests
 
 ### Ejecutar todos los tests con detalle:
 ```
@@ -69,7 +69,7 @@ python -m pytest tests/ --cov=src --cov-report=term-missing
 
 ---
 
-## 🔄 Ciclo TDD Aplicado — Ejemplo con Suma
+## Ciclo TDD Aplicado — Ejemplo con Suma
 
 ### 🔴 Paso 1 — RED: Escribir el test PRIMERO
 ```python
@@ -99,7 +99,7 @@ def sumar(self, a: float, b: float) -> float:
 
 ---
 
-## 📊 Resumen de Tests
+## Resumen de Tests
 
 | Clase de Test        | Cantidad de Tests | Descripción                        |
 |----------------------|-------------------|------------------------------------|
@@ -115,7 +115,7 @@ def sumar(self, a: float, b: float) -> float:
 
 ---
 
-## 🎯 Principios TDD aplicados en este proyecto
+## Principios TDD aplicados en este proyecto
 
 1. **Un test a la vez** → Cada iteración agrega una nueva operación.
 2. **Mínimo código** → Se escribe solo lo necesario para pasar el test.
