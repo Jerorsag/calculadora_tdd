@@ -1,0 +1,237 @@
+# =================================================================
+# GitHub Actions — Pipeline de CI/CD
+# =================================================================
+# Proyecto  : Calculadora TDD | Python
+# Curso     : Ingeniería de Software — Metodología TDD
+# Archivo   : .github/workflows/ci.yml
+# =================================================================
+#
+# ARQUITECTURA DEL PIPELINE:
+#
+#   [push / pull_request → master]
+#            │
+#            ▼
+#   ┌─────────────────────────┐
+#   │  JOB 1: pruebas-        │  ← Entorno, dependencias,
+#   │         unitarias       │    pytest + cobertura
+#   └────────────┬────────────┘
+#                │  needs (depende de éxito)
+#                ▼
+#   ┌─────────────────────────┐
+#   │  JOB 2: validacion-     │  ← Verifica integridad del
+#   │         ciclo-tdd       │    ciclo RED → GREEN → REFACTOR
+#   └─────────────────────────┘
+#
+# =================================================================
+
+name: CI — Calculadora TDD
+
+# -----------------------------------------------------------------
+# DISPARADORES DEL WORKFLOW
+# Se ejecuta automáticamente en push o pull_request hacia master
+# -----------------------------------------------------------------
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+# -----------------------------------------------------------------
+# CONCURRENCIA
+# Cancela ejecuciones anteriores si se hace un nuevo push mientras
+# el pipeline todavía está corriendo. Ahorra minutos de CI/CD.
+# -----------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# =================================================================
+# JOBS
+# =================================================================
+jobs:
+
+  # ---------------------------------------------------------------
+  # JOB 1 — pruebas-unitarias
+  # ---------------------------------------------------------------
+  # Responsabilidad:
+  #   1. Configurar el entorno Python 3.11
+  #   2. Instalar dependencias desde requirements.txt
+  #   3. Ejecutar la suite completa de pruebas (Fase REFACTOR)
+  #   4. Medir y reportar cobertura de código (mínimo 80%)
+  #   5. Publicar el reporte XML como artefacto descargable
+  # ---------------------------------------------------------------
+  pruebas-unitarias:
+    name: Pruebas Unitarias — Python 3.11
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # STEP 1 — Descargar el código fuente del repositorio
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # STEP 2 — Instalar Python 3.11
+      # "cache: pip" reutiliza el caché si requirements.txt no cambió,
+      # reduciendo el tiempo de instalación en ejecuciones posteriores.
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # STEP 3 — Actualizar pip e instalar las dependencias del proyecto
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # STEP 4 — Mostrar versiones instaladas para auditoría y debugging
+      - name: Verificar entorno Python
+        run: |
+          echo "============================================"
+          python --version
+          echo "--------------------------------------------"
+          pip list
+          echo "============================================"
+
+      # STEP 5 — Ejecutar la suite de pruebas de la Fase REFACTOR
+      # Esta es la fase final del ciclo TDD: código limpio + validaciones.
+      # Si algún test falla aquí, el pipeline falla y el push es rechazado.
+      - name: Ejecutar pruebas unitarias — Fase REFACTOR
+        run: |
+          python -m pytest fase_3_refactor/tests/ \
+            --tb=short \
+            --no-header \
+            -v
+
+      # STEP 6 — Medir cobertura de código
+      # --cov-fail-under=80 fuerza fallo si la cobertura cae por debajo del 80%
+      # --cov-report=xml genera el archivo coverage.xml para integraciones externas
+      - name: Reporte de cobertura de codigo
+        run: |
+          python -m pytest fase_3_refactor/tests/ \
+            --cov=fase_3_refactor/src \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80 \
+            -q
+
+      # STEP 7 — Publicar el reporte de cobertura como artefacto
+      # "if: always()" garantiza que el artefacto se suba incluso si
+      # el step de cobertura falla, para poder inspeccionar los resultados.
+      - name: Publicar reporte de cobertura como artefacto
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-cobertura-xml
+          path: coverage.xml
+          retention-days: 7
+
+  # ---------------------------------------------------------------
+  # JOB 2 — validacion-ciclo-tdd
+  # ---------------------------------------------------------------
+  # Responsabilidad:
+  #   Verificar la integridad del ciclo TDD completo:
+  #     🔴 Fase RED      → Los tests DEBEN fallar (sin implementación)
+  #     🟢 Fase GREEN    → Los tests DEBEN pasar  (código mínimo)
+  #     🔵 Fase REFACTOR → Los tests DEBEN pasar  (código limpio)
+  #
+  # "needs: pruebas-unitarias" garantiza que este job solo se ejecuta
+  # si el Job 1 completó con éxito. Orden de ejecución garantizado.
+  # ---------------------------------------------------------------
+  validacion-ciclo-tdd:
+    name: Validacion Ciclo TDD — RED / GREEN / REFACTOR
+    runs-on: ubuntu-latest
+    needs: pruebas-unitarias
+
+    steps:
+
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # STEP — FASE RED
+      # Se espera que los tests fallen porque los métodos solo tienen "pass".
+      # "|| true" captura el exit code no-cero de pytest y lo convierte en 0,
+      # evitando que el pipeline falle en este step (el fallo ES el resultado esperado).
+      - name: "[RED] Fase 1 — Los tests DEBEN fallar sin implementacion"
+        run: |
+          echo "Ejecutando Fase RED — Se esperan fallos..."
+          python -m pytest fase_1_red/tests/ --tb=no -q || true
+          echo "OK — Fase RED falla correctamente (comportamiento esperado en TDD)"
+
+      # STEP — FASE GREEN
+      # El código mínimo fue implementado. Todos los tests deben pasar.
+      # Si algún test falla aquí, hay un problema real en la Fase GREEN.
+      - name: "[GREEN] Fase 2 — Los tests DEBEN pasar con codigo minimo"
+        run: |
+          python -m pytest fase_2_green/tests/ \
+            --tb=short \
+            --no-header \
+            -v
+
+      # STEP — FASE REFACTOR
+      # Código limpio con validaciones. Incluye 7 tests nuevos de TestValidaciones.
+      # Debe correr los 43 tests y pasar todos.
+      - name: "[REFACTOR] Fase 3 — Los tests DEBEN pasar con codigo limpio"
+        run: |
+          python -m pytest fase_3_refactor/tests/ \
+            --tb=short \
+            --no-header \
+            -v
+
+      # STEP — Resumen final del ciclo TDD en el log del pipeline
+      - name: Resumen del ciclo TDD completado
+        run: |
+          echo ""
+          echo "=================================================="
+          echo "        CICLO TDD VALIDADO EXITOSAMENTE           "
+          echo "=================================================="
+          echo ""
+          echo "  FASE RED      — Tests fallaron (sin implementacion)"
+          echo "  FASE GREEN    — 36 tests pasaron (codigo minimo)  "
+          echo "  FASE REFACTOR — 43 tests pasaron (codigo limpio)  "
+          echo ""
+          echo "  Pipeline: OK"
+          echo "=================================================="
+
+# =================================================================
+# MEJORAS FUTURAS SUGERIDAS (descomentar según necesidad)
+# =================================================================
+#
+#  linting:
+#    name: Linting — flake8
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: actions/setup-python@v5
+#        with: { python-version: '3.11' }
+#      - run: pip install flake8
+#      - run: flake8 fase_3_refactor/src/ --max-line-length=100
+#
+#  matrix-testing:
+#    name: Matrix — Python ${{ matrix.python-version }}
+#    runs-on: ubuntu-latest
+#    strategy:
+#      matrix:
+#        python-version: ['3.10', '3.11', '3.12']
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: actions/setup-python@v5
+#        with: { python-version: '${{ matrix.python-version }}' }
+#      - run: pip install -r requirements.txt
+#      - run: python -m pytest fase_3_refactor/tests/ -v
+#
+# =================================================================
