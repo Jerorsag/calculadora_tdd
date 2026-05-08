@@ -1,0 +1,15 @@
+# =================================================================
+# Dependencias del Proyecto — Calculadora TDD
+# =================================================================
+# Instalar con: pip install -r requirements.txt
+# =================================================================
+
+# ── Testing ───────────────────────────────────────────────────────
+pytest==7.4.3           # Framework principal de pruebas unitarias
+pytest-cov==4.1.0       # Plugin de cobertura de código para pytest
+
+# ── Futuras mejoras (descomentar cuando se implementen) ──────────
+# flake8==6.1.0          # Linting y análisis de estilo PEP8
+# black==23.9.1           # Formateador automático de código
+# mypy==1.6.0             # Análisis estático de tipos
+# bandit==1.7.5           # Análisis de seguridad estático
